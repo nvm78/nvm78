@@ -75,23 +75,36 @@ const msg = document.getElementById('messageContainer');
 const wakeDot = document.getElementById('wakeDot');
 
 let totalSeconds = 0, startTime = 0, rafId = null, running = false, wakeLock = null;
-
-// Load the MP3 sound
 const alarmAudio = new Audio('alarm.mp3');
-alarmAudio.loop = true; // repeat until stopped
+alarmAudio.loop = true; // keep looping until stopped
+alarmAudio.preload = 'auto';
 
 function startAlarm() {
   msg.style.opacity = 1;
   msg.classList.add('flash');
-  alarmAudio.currentTime = 0;
-  alarmAudio.play().catch(e => console.log('Playback blocked:', e));
+  try {
+    alarmAudio.currentTime = 0;
+    alarmAudio.play().catch(e => console.log('Playback blocked:', e));
+  } catch (e) {
+    console.log('Audio play error', e);
+  }
 }
 
 function stopAlarm() {
   msg.classList.remove('flash');
   msg.style.opacity = 0;
-  alarmAudio.pause();
-  alarmAudio.currentTime = 0; // rewind
+  try {
+    // Stop immediately, even mid-loop
+    alarmAudio.pause();
+    alarmAudio.removeAttribute('src'); // force unload the sound
+    alarmAudio.load(); // stops playback instantly
+    // Reinitialize so the next alarm works again
+    alarmAudio.src = 'alarm.mp3';
+    alarmAudio.loop = true;
+    alarmAudio.preload = 'auto';
+  } catch (e) {
+    console.log('Audio stop error', e);
+  }
 }
 
 async function requestWakeLock() {
