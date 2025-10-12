@@ -199,6 +199,44 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 document.getElementById('stopBtn').addEventListener('click', stopAlarm);
+
+(function() {
+  const oldLog = console.log;
+  const oldErr = console.error;
+  const output = document.createElement('div');
+  output.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 40vh;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.85);
+    color: #0f0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 8px;
+    z-index: 999999;
+  `;
+  document.body.appendChild(output);
+
+  function writeLog(type, ...args) {
+    const msg = document.createElement('div');
+    msg.textContent = `[${type}] ` + args.join(' ');
+    output.appendChild(msg);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  console.log = (...args) => {
+    oldLog(...args);
+    writeLog('log', ...args);
+  };
+
+  console.error = (...args) => {
+    oldErr(...args);
+    writeLog('error', ...args);
+  };
+})();
 </script>
 
 
