@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Countdown Tubes</title>
+<style>
+html,body {
+  height:100%; margin:0; padding:0;
+  display:flex; flex-direction:column;
+  font-family:system-ui;
+  background:radial-gradient(circle at center,#1a2a6c,#b21f1f,#fdbb2d);
+  color:#fff; overflow:hidden;
+}
+#wrapper {
+  flex:1; display:flex; flex-direction:column; justify-content:space-between;
+}
+#messageContainer {
+  height:10%; display:flex; align-items:center; justify-content:center;
+  font-size:2rem; font-weight:bold; text-shadow:0 0 10px #000;
+  opacity:0; transition:opacity .4s;
+}
+#countdownContainer {
+  height:70%; display:flex; align-items:flex-end; justify-content:center;
+  gap:10px; padding:0 12px;
+}
+.tube {
+  height:100%; border:3px solid rgba(255,255,255,.9); border-radius:14px;
+  background:rgba(255,255,255,.08);
+  position:relative; overflow:hidden;
+}
+.water {
+  position:absolute; left:0; right:0; bottom:0; height:0%;
+  background:linear-gradient(to top,#0048ff,#00e5ff);
+  border-radius:10px 10px 0 0; transition:height .25s linear;
+}
+#controls {
+  height:15%; display:flex; align-items:center; justify-content:center;
+  gap:10px; flex-wrap:wrap; padding:8px;
+}
+input[type=number] {
+  width:150px; padding:10px; border-radius:8px; border:none; outline:none;
+  text-align:center; font-size:1.1rem;
+}
+button {
+  padding:10px 14px; border-radius:8px; border:none;
+  background:#fff; color:#1a2a6c; font-weight:700; cursor:pointer;
+}
+button:hover { filter:brightness(.95); }
+.flash { animation:flash 1s infinite; }
+@keyframes flash { 50%{color:#ff0;} }
+#wakeDot {
+  position:fixed; bottom:6px; right:10px;
+  width:10px; height:10px; border-radius:50%;
+  background:#0f0; box-shadow:0 0 8px #0f0; opacity:.6;
+}
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="messageContainer">Time's up!</div>
+  <div id="countdownContainer"></div>
+  <div id="controls">
+    <input id="inputSeconds" type="number" min="1" placeholder="Seconds" />
+    <button id="startBtn">Start</button>
+    <button id="resetBtn">Reset</button>
+    <button id="stopBtn">Stop Alarm</button>
+  </div>
+</div>
+<div id="wakeDot" title="Screen awake"></div>
+
+<script>
+const container=document.getElementById('countdownContainer');
+const input=document.getElementById('inputSeconds');
+const msg=document.getElementById('messageContainer');
+const wakeDot=document.getElementById('wakeDot');
+let totalSeconds=0,startTime=0,rafId=null,running=false,wakeLock=null;
+
+function playBeep(){
+ const ctx=new (window.AudioContext||window.webkitAudioContext)();
+ const o=ctx.createOscillator();const g=ctx.createGain();
+ o.connect(g);g.connect(ctx.destination);o.frequency.value=880;
+ o.start();g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+.5);
+ o.stop(ctx.currentTime+.5);
+}
+
+function startAlarm(){
+ msg.style.opacity=1;msg.classList.add('flash');playBeep();
+}
+function stopAlarm(){
+ msg.classList.remove('flash');msg.style.opacity=0;
+}
+
+async function requestWakeLock(){
+ try {
+   if('wakeLock' in navigator) {
+     wakeLock = await navigator.wakeLock.request('screen');
+     wakeDot.style.background='#0f0';
+     wakeLock.addEventListener('release', () => {
+       wakeDot.style.background='#f00';
+     });
+   }
+ } catch(err) {
+   console.error(err);
+   wakeDot.style.background='#f00';
+ }
+}
+
+// Automatically re-request wake lock if lost or tab refocused
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState==='visible' && wakeLock===null) await requestWakeLock();
+});
+
+function createTubes(totalSec){
+ container.innerHTML='';
+ const full=Math.floor(totalSec/60);
+ const partialSec=totalSec%60;
+ const totalTubes=full+(partialSec?1:0);
+ const maxWidth=120;
+ const tubeWidth=Math.max(30,Math.min(maxWidth,Math.floor((container.clientWidth-10*(totalTubes-1))/totalTubes)));
+ for(let i=totalTubes-1;i>=0;i--){
+   const tube=document.createElement('div');
+   tube.className='tube';tube.style.width=tubeWidth+'px';
+   const water=document.createElement('div');
+   water.className='water';water.id='water'+i;
+   tube.appendChild(water);container.appendChild(tube);
+ }
+}
+
+function update(){
+ const elapsed=(Date.now()-startTime)/1000;
+ const remaining=Math.max(totalSeconds-elapsed,0);
+ input.value=remaining>0?Math.ceil(remaining):"";
+ const fullTubes=Math.floor(totalSeconds/60);
+ const partialSec=totalSeconds%60;
+ const totalTubes=fullTubes+(partialSec?1:0);
+ let secondsLeft=totalSeconds-elapsed;
+ for(let i=totalTubes-1;i>=0;i--){
+   const tube=document.getElementById('water'+i);
+   let tubeSeconds=Math.min(secondsLeft,60);
+   tube.style.height=(tubeSeconds/60*100)+'%';
+   secondsLeft-=60;
+ }
+ if(remaining>0) rafId=requestAnimationFrame(update);
+ else {running=false;container.innerHTML='';startAlarm();}
+}
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+ if(running) return;
+ const v=Number(input.value);
+ if(!v||v<=0){alert('Enter valid seconds');return;}
+ totalSeconds=Math.ceil(v);
+ createTubes(totalSeconds);
+ msg.style.opacity=0;
+ startTime=Date.now();
+ running=true;
+ requestWakeLock();
+ rafId=requestAnimationFrame(update);
+ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+});
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+ running=false;cancelAnimationFrame(rafId);container.innerHTML='';stopAlarm();
+});
+document.getElementById('stopBtn').addEventListener('click',stopAlarm);
+</script>
+</body>
+</html>
+
