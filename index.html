@@ -84,8 +84,12 @@ const msg = document.getElementById('messageContainer');
 const wakeDot = document.getElementById('wakeDot');
 const volumeSlider = document.getElementById('volumeSlider');
 
-let totalSeconds = 0, startTime = 0, rafId = null, running = false, wakeLock = null;
-let partialDrained = false; // track partial tube drain
+let totalSeconds = 0,
+    startTime = 0,
+    rafId = null,
+    running = false,
+    wakeLock = null,
+    partialDrained = false;
 
 const alarmAudio = new Audio('alarm.mp3');
 alarmAudio.loop = true;
@@ -144,7 +148,10 @@ function createTubes(totalSec) {
   const partial = totalSec % 60;
   const totalTubes = full + (partial ? 1 : 0);
   const maxWidth = 120;
-  const tubeWidth = Math.max(30, Math.min(maxWidth, Math.floor((container.clientWidth - 10 * (totalTubes - 1)) / totalTubes)));
+  const tubeWidth = Math.max(
+    30,
+    Math.min(maxWidth, Math.floor((container.clientWidth - 10 * (totalTubes - 1)) / totalTubes))
+  );
 
   for (let i = totalTubes - 1; i >= 0; i--) {
     const tube = document.createElement('div');
@@ -158,9 +165,8 @@ function createTubes(totalSec) {
     // Partial tube starts full
     if (i === totalTubes - 1 && partial > 0) {
       water.style.height = '100%';
-      water.style.background = `linear-gradient(120deg, #0048ff 30%, #00e5ff 70%)`;
-      water.style.backgroundSize = '200% 100%';
-      water.classList.add('wavy');
+    } else {
+      water.style.height = '0%';
     }
 
     tube.appendChild(water);
@@ -170,43 +176,26 @@ function createTubes(totalSec) {
   partialDrained = false;
 }
 
-// ------------------ Wavy CSS Animation ------------------
-const style = document.createElement('style');
-style.textContent = `
-  .wavy {
-    animation: wave 0.5s linear infinite;
-  }
-  @keyframes wave {
-    0% { background-position: 0 0; }
-    100% { background-position: -200% 0; }
-  }
-`;
-document.head.appendChild(style);
-
-// ------------------ Partial Tube Drain + Countdown ------------------
-function startCountdown() {
+// ------------------ Partial Tube Drain ------------------
+function drainPartialTube(callback) {
   const full = Math.floor(totalSeconds / 60);
   const partial = totalSeconds % 60;
-  const totalTubes = full + (partial ? 1 : 0);
-
-  if (partial > 0) {
-    const partialTube = document.getElementById('water' + (totalTubes - 1));
-    const targetHeight = (partial / 60) * 100;
-
-    // quick drain 0.5s
-    partialTube.style.transition = 'height 0.5s linear';
-    partialTube.style.height = targetHeight + '%';
-
-    // remove wavy effect after drain
-    setTimeout(() => {
-      partialTube.classList.remove('wavy');
-      partialDrained = true;
-      rafId = requestAnimationFrame(update);
-    }, 500);
-  } else {
+  if (partial === 0) {
     partialDrained = true;
-    rafId = requestAnimationFrame(update);
+    callback();
+    return;
   }
+  const totalTubes = full + (partial ? 1 : 0);
+  const tube = document.getElementById('water' + (totalTubes - 1));
+  const targetHeight = (partial / 60) * 100;
+
+  tube.style.transition = 'height 0.5s linear';
+  tube.style.height = targetHeight + '%';
+
+  setTimeout(() => {
+    partialDrained = true;
+    callback();
+  }, 500);
 }
 
 // ------------------ Countdown Update ------------------
@@ -230,7 +219,7 @@ function update() {
     if (i === totalTubes - 1 && partial > 0 && !partialDrained) continue;
 
     tube.style.transition = 'height 0.25s linear';
-    tube.style.height = (tubeSec / 60 * 100) + '%';
+    tube.style.height = (tubeSec / 60) * 100 + '%';
 
     secondsLeft -= 60;
   }
@@ -242,6 +231,14 @@ function update() {
     container.innerHTML = '';
     startAlarm();
   }
+}
+
+// ------------------ Start Countdown ------------------
+function startCountdown() {
+  startTime = Date.now();
+  drainPartialTube(() => {
+    rafId = requestAnimationFrame(update);
+  });
 }
 
 // ------------------ Controls ------------------
@@ -256,7 +253,6 @@ document.getElementById('startBtn').addEventListener('click', () => {
   totalSeconds = Math.ceil(v);
   createTubes(totalSeconds);
   msg.style.opacity = 0;
-  startTime = Date.now();
   running = true;
   requestWakeLock();
   if (!document.fullscreenElement)
@@ -273,6 +269,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 document.getElementById('stopBtn').addEventListener('click', stopAlarm);
+
 </script>
 </body>
 </html>
