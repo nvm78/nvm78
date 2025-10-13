@@ -94,11 +94,11 @@ alarmAudio.loop = true;
 alarmAudio.preload = 'auto';
 volumeSlider.addEventListener('input', ()=>{ alarmAudio.volume = parseFloat(volumeSlider.value); });
 
-// ------------------ Alarm ------------------
+// Alarm
 function startAlarm(){ msg.style.opacity=1; msg.classList.add('flash'); alarmAudio.currentTime=0; alarmAudio.play().catch(e=>console.log('Playback blocked:',e)); }
 function stopAlarm(){ msg.classList.remove('flash'); msg.style.opacity=0; try{alarmAudio.pause();alarmAudio.currentTime=0;}catch(e){console.log('Audio stop error',e);} }
 
-// ------------------ Wake Lock ------------------
+// Wake Lock
 async function requestWakeLock(){
   try{
     if('wakeLock' in navigator){
@@ -112,7 +112,7 @@ document.addEventListener('visibilitychange', async ()=>{
   if(document.visibilityState==='visible' && wakeLock===null) await requestWakeLock();
 });
 
-// ------------------ Tube Creation ------------------
+// Create tubes
 function createTubes(totalSec){
   container.innerHTML='';
   const full = Math.floor(totalSec/60);
@@ -120,7 +120,7 @@ function createTubes(totalSec){
   const totalTubes = full + (partial?1:0);
   const tubeWidth = Math.max(30, Math.min(120, Math.floor((container.clientWidth - 10*(totalTubes-1))/totalTubes)));
 
-  for(let i=totalTubes-1; i>=0; i--){
+  for(let i=0;i<totalTubes;i++){
     const tube = document.createElement('div');
     tube.className = 'tube';
     tube.style.width = tubeWidth+'px';
@@ -130,7 +130,7 @@ function createTubes(totalSec){
 
     if(i === totalTubes-1 && partial>0){
       water.style.transition='none';
-      water.style.height='100%';   // full height initially
+      water.style.height='100%';
     } else {
       water.style.height='0%';
     }
@@ -142,7 +142,7 @@ function createTubes(totalSec){
   partialDrained=false;
 }
 
-// ------------------ Partial Tube Drain ------------------
+// Partial tube drain
 function drainPartialTube(callback){
   const full = Math.floor(totalSeconds/60);
   const partial = totalSeconds%60;
@@ -151,53 +151,51 @@ function drainPartialTube(callback){
   const totalTubes = full+1;
   const tube = document.getElementById('water'+(totalTubes-1));
 
-  // Force browser render
   requestAnimationFrame(()=>{
-    tube.classList.add('wavy');          // vertical wave
+    tube.classList.add('wavy');
     tube.style.transition='height 0.5s linear';
-    tube.style.height=(partial/60*100)+'%';  // shrink from full → partial
-
+    tube.style.height = (partial/60*100)+'%';
     setTimeout(()=>{
       tube.classList.remove('wavy');
       partialDrained=true;
-      callback();                       // start countdown after drain
+      callback();
     },550);
   });
 }
 
-// ------------------ Countdown Update ------------------
+// Update loop
 function update(){
   const elapsed=(Date.now()-startTime)/1000;
   const remaining=Math.max(totalSeconds-elapsed,0);
-  input.value=remaining>0?Math.ceil(remaining):'';
-  const full=Math.floor(totalSeconds/60);
-  const partial=totalSeconds%60;
-  const totalTubes=full+(partial?1:0);
-  let secondsLeft = totalSeconds - elapsed;
+  input.value = remaining>0 ? Math.ceil(remaining) : '';
 
-  for(let i=totalTubes-1;i>=0;i--){
-    const tube=document.getElementById('water'+i);
+  const full = Math.floor(totalSeconds/60);
+  const partial = totalSeconds%60;
+  const totalTubes = full + (partial?1:0);
+
+  for(let i=0;i<totalTubes;i++){
+    const tube = document.getElementById('water'+i);
     if(!tube) continue;
 
-    let tubeSec = Math.min(secondsLeft, 60);
+    let tubeStart = i*60;
+    let tubeEnd = (i===totalTubes-1 && partial>0) ? totalSeconds : (i+1)*60;
+    let tubeRemaining = tubeEnd - elapsed;
 
-    // Skip partial tube until drain completes
-    if(i===totalTubes-1 && partial>0 && !partialDrained) continue;
+    if(tubeRemaining < 0) tubeRemaining = 0;
+    if(tubeRemaining > (tubeEnd - tubeStart)) tubeRemaining = tubeEnd - tubeStart;
 
-    tube.style.transition='height 0.25s linear';
-    tube.style.height=(tubeSec/60*100)+'%';
-
-    secondsLeft -= 60;
+    const heightPercent = (tubeRemaining / (tubeEnd - tubeStart)) * 100;
+    tube.style.height = heightPercent + '%';
   }
 
-  if(remaining>0) rafId=requestAnimationFrame(update);
+  if(remaining>0) rafId = requestAnimationFrame(update);
   else { running=false; container.innerHTML=''; startAlarm(); }
 }
 
-// ------------------ Start Countdown ------------------
+// Start countdown
 function startCountdown(){ startTime=Date.now(); drainPartialTube(()=>{ rafId=requestAnimationFrame(update); }); }
 
-// ------------------ Controls ------------------
+// Controls
 document.getElementById('startBtn').addEventListener('click',()=>{
   if(running) return;
   const v=Number(input.value);
