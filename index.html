@@ -136,13 +136,33 @@ function drainPartialTube(callback){
   const full=Math.floor(totalSeconds/60);
   const partial=totalSeconds%60;
   if(partial===0){ partialDrained=true; callback(); return; }
+
   const totalTubes = full+1;
   const tube=document.getElementById('water'+(totalTubes-1));
-  const targetHeight=(partial/60)*100;
-  tube.style.transition='height 0.5s linear';
-  tube.style.height=targetHeight+'%';
-  setTimeout(()=>{ tube.classList.remove('wavy'); partialDrained=true; callback(); },550);
+
+  // Immediately set full height without transition
+  tube.style.transition='none';
+  tube.style.height='100%';
+  
+  // Force browser to render
+  requestAnimationFrame(()=>{
+    // Add wavy animation
+    tube.classList.add('wavy');
+
+    // Then start draining with transition
+    tube.style.transition='height 0.5s linear';
+    const targetHeight=(partial/60)*100;
+    tube.style.height=targetHeight+'%';
+
+    // Remove wavy after drain completes
+    setTimeout(()=>{
+      tube.classList.remove('wavy');
+      partialDrained=true;
+      callback();
+    },550);
+  });
 }
+
 
 // ------------------ Countdown Update ------------------
 function update(){
