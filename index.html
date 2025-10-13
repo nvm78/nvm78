@@ -155,9 +155,9 @@ function createTubes(totalSec) {
     water.className = 'water';
     water.id = 'water' + i;
 
-    // If it's the first tube and there is a partial minute, start partially filled
+    // Partial tube starts visually full if it's the first (rightmost) tube
     if (i === totalTubes - 1 && partial > 0) {
-      water.style.height = (partial / 60 * 100) + '%';
+      water.style.height = '100%';
     }
 
     tube.appendChild(water);
@@ -165,7 +165,6 @@ function createTubes(totalSec) {
   }
 }
 
-// ⏱️ Countdown animation
 function update() {
   const elapsed = (Date.now() - startTime) / 1000;
   const remaining = Math.max(totalSeconds - elapsed, 0);
@@ -182,11 +181,13 @@ function update() {
 
     let tubeSec = Math.min(secondsLeft, 60);
 
-    // Animate partial tube drain quickly at the start
-    if (i === totalTubes - 1 && partial > 0 && elapsed < 0.5) {
+    // Partial tube quick drain for the first tube
+    if (i === totalTubes - 1 && partial > 0 && secondsLeft > totalSeconds - partial) {
+      // Quick drain from full to partial
       tube.style.transition = 'height 0.5s linear';
       tube.style.height = (tubeSec / 60 * 100) + '%';
     } else {
+      // Normal countdown animation
       tube.style.transition = 'height 0.25s linear';
       tube.style.height = (tubeSec / 60 * 100) + '%';
     }
@@ -202,6 +203,7 @@ function update() {
     startAlarm();
   }
 }
+
 // 🧭 Controls
 document.getElementById('startBtn').addEventListener('click', () => {
   if (running) return;
