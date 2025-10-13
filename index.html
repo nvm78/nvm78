@@ -30,9 +30,20 @@ html,body {
   position:relative; overflow:hidden;
 }
 .water {
-  position:absolute; left:0; right:0; bottom:0; height:0%;
-  background:linear-gradient(to top,#0048ff,#00e5ff);
-  border-radius:10px 10px 0 0; transition:height .25s linear;
+  position:absolute; left:0; right:0; top:0;
+  height:0%;
+  border-radius:10px 10px 0 0;
+  transition:height .25s linear;
+  transform-origin: top;
+}
+.wavy {
+  background: linear-gradient(to bottom, #0048ff 30%, #00e5ff 70%);
+  background-size: 100% 200%;
+  animation: wave 0.5s linear infinite;
+}
+@keyframes wave {
+  0% { background-position:0 0; }
+  100% { background-position:0 -200%; }
 }
 #controls {
   height:15%; display:flex; align-items:center; justify-content:center;
@@ -43,9 +54,7 @@ input[type=number] {
   text-align:center; font-size:1.1rem;
 }
 input[type=range] {
-  width:120px;
-  accent-color:#fff;
-  cursor:pointer;
+  width:150px;
 }
 button {
   padding:10px 14px; border-radius:8px; border:none;
@@ -67,12 +76,10 @@ button:hover { filter:brightness(.95); }
   <div id="countdownContainer"></div>
   <div id="controls">
     <input id="inputSeconds" type="number" min="1" placeholder="Seconds" />
+    <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" title="Volume"/>
     <button id="startBtn">Start</button>
     <button id="resetBtn">Reset</button>
     <button id="stopBtn">Stop Alarm</button>
-    <label style="display:flex;align-items:center;gap:5px;">
-      🔉<input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" title="Alarm volume">
-    </label>
   </div>
 </div>
 <div id="wakeDot" title="Screen awake"></div>
@@ -84,12 +91,7 @@ const msg = document.getElementById('messageContainer');
 const wakeDot = document.getElementById('wakeDot');
 const volumeSlider = document.getElementById('volumeSlider');
 
-let totalSeconds = 0,
-    startTime = 0,
-    rafId = null,
-    running = false,
-    wakeLock = null,
-    partialDrained = false;
+let totalSeconds = 0, startTime = 0, rafId = null, running = false, wakeLock = null, partialDrained = false;
 
 const alarmAudio = new Audio('alarm.mp3');
 alarmAudio.loop = true;
@@ -103,173 +105,112 @@ function startAlarm() {
   msg.style.opacity = 1;
   msg.classList.add('flash');
   alarmAudio.currentTime = 0;
-  alarmAudio.play().catch(e => console.log('Playback blocked:', e));
+  alarmAudio.play().catch(e=>console.log('Playback blocked:',e));
 }
 
 function stopAlarm() {
   msg.classList.remove('flash');
   msg.style.opacity = 0;
-  try {
-    alarmAudio.pause();
-    alarmAudio.currentTime = 0;
-  } catch (e) {
-    console.log('Audio stop error', e);
-  }
+  try { alarmAudio.pause(); alarmAudio.currentTime=0; } 
+  catch(e){console.log('Audio stop error',e);}
 }
 
 // ------------------ Wake Lock ------------------
 async function requestWakeLock() {
   try {
-    if ('wakeLock' in navigator) {
+    if('wakeLock' in navigator){
       wakeLock = await navigator.wakeLock.request('screen');
       wakeDot.style.background = '#0f0';
-      wakeLock.addEventListener('release', () => {
-        wakeDot.style.background = '#f00';
-      });
-    } else {
-      wakeDot.style.background = '#ff0';
-    }
-  } catch (e) {
-    console.error(e);
-    wakeDot.style.background = '#f00';
-  }
+      wakeLock.addEventListener('release',()=>{wakeDot.style.background='#f00';});
+    } else wakeDot.style.background='#ff0';
+  } catch(e){console.error(e); wakeDot.style.background='#f00';}
 }
 
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && wakeLock === null) {
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState==='visible' && wakeLock===null){
     await requestWakeLock();
   }
 });
 
 // ------------------ Tube Creation ------------------
-function createTubes(totalSec) {
-  container.innerHTML = '';
-  const full = Math.floor(totalSec / 60);
-  const partial = totalSec % 60;
-  const totalTubes = full + (partial ? 1 : 0);
-  const maxWidth = 120;
-  const tubeWidth = Math.max(
-    30,
-    Math.min(maxWidth, Math.floor((container.clientWidth - 10 * (totalTubes - 1)) / totalTubes))
-  );
+function createTubes(totalSec){
+  container.innerHTML='';
+  const full = Math.floor(totalSec/60);
+  const partial = totalSec%60;
+  const totalTubes = full + (partial?1:0);
+  const maxWidth=120;
+  const tubeWidth=Math.max(30, Math.min(maxWidth, Math.floor((container.clientWidth - 10*(totalTubes-1))/totalTubes)));
 
-  for (let i = totalTubes - 1; i >= 0; i--) {
-    const tube = document.createElement('div');
-    tube.className = 'tube';
-    tube.style.width = tubeWidth + 'px';
-
-    const water = document.createElement('div');
-    water.className = 'water';
-    water.id = 'water' + i;
-
-    // Partial tube starts full
-    if (i === totalTubes - 1 && partial > 0) {
-      water.style.height = '100%';
-    } else {
-      water.style.height = '0%';
-    }
-
-    tube.appendChild(water);
-    container.appendChild(tube);
+  for(let i=totalTubes-1;i>=0;i--){
+    const tube=document.createElement('div'); tube.className='tube'; tube.style.width=tubeWidth+'px';
+    const water=document.createElement('div'); water.className='water'; water.id='water'+i;
+    if(i===totalTubes-1 && partial>0){ water.style.height='100%'; water.classList.add('wavy'); } 
+    else water.style.height='0%';
+    tube.appendChild(water); container.appendChild(tube);
   }
-
-  partialDrained = false;
+  partialDrained=false;
 }
 
 // ------------------ Partial Tube Drain ------------------
-function drainPartialTube(callback) {
-  const full = Math.floor(totalSeconds / 60);
-  const partial = totalSeconds % 60;
-  if (partial === 0) {
-    partialDrained = true;
+function drainPartialTube(callback){
+  const full = Math.floor(totalSeconds/60);
+  const partial = totalSeconds%60;
+  if(partial===0){ partialDrained=true; callback(); return; }
+  const totalTubes = full + 1;
+  const tube=document.getElementById('water'+(totalTubes-1));
+  const targetHeight = (partial/60)*100;
+  tube.style.transition='height 0.5s linear';
+  tube.style.height=targetHeight+'%';
+  setTimeout(()=>{
+    tube.classList.remove('wavy');
+    partialDrained=true;
     callback();
-    return;
-  }
-  const totalTubes = full + (partial ? 1 : 0);
-  const tube = document.getElementById('water' + (totalTubes - 1));
-  const targetHeight = (partial / 60) * 100;
-
-  tube.style.transition = 'height 0.5s linear';
-  tube.style.height = targetHeight + '%';
-
-  setTimeout(() => {
-    partialDrained = true;
-    callback();
-  }, 500);
+  },600);
 }
 
 // ------------------ Countdown Update ------------------
-function update() {
-  const elapsed = (Date.now() - startTime) / 1000;
-  const remaining = Math.max(totalSeconds - elapsed, 0);
-  input.value = remaining > 0 ? Math.ceil(remaining) : '';
+function update(){
+  const elapsed=(Date.now()-startTime)/1000;
+  const remaining=Math.max(totalSeconds-elapsed,0);
+  input.value=remaining>0?Math.ceil(remaining):'';
+  const full=Math.floor(totalSeconds/60);
+  const partial=totalSeconds%60;
+  const totalTubes=full+(partial?1:0);
+  let secondsLeft=totalSeconds-elapsed;
 
-  const full = Math.floor(totalSeconds / 60);
-  const partial = totalSeconds % 60;
-  const totalTubes = full + (partial ? 1 : 0);
-  let secondsLeft = totalSeconds - elapsed;
-
-  for (let i = totalTubes - 1; i >= 0; i--) {
-    const tube = document.getElementById('water' + i);
-    if (!tube) continue;
-
-    let tubeSec = Math.min(secondsLeft, 60);
-
-    // Skip partial tube until drain finishes
-    if (i === totalTubes - 1 && partial > 0 && !partialDrained) continue;
-
-    tube.style.transition = 'height 0.25s linear';
-    tube.style.height = (tubeSec / 60) * 100 + '%';
-
-    secondsLeft -= 60;
+  for(let i=totalTubes-1;i>=0;i--){
+    const tube=document.getElementById('water'+i);
+    if(!tube) continue;
+    let tubeSec=Math.min(secondsLeft,60);
+    if(i===totalTubes-1 && partial>0 && !partialDrained) continue;
+    tube.style.transition='height 0.25s linear';
+    tube.style.height=(tubeSec/60*100)+'%';
+    secondsLeft-=60;
   }
 
-  if (remaining > 0) {
-    rafId = requestAnimationFrame(update);
-  } else {
-    running = false;
-    container.innerHTML = '';
-    startAlarm();
-  }
+  if(remaining>0) rafId=requestAnimationFrame(update);
+  else { running=false; container.innerHTML=''; startAlarm(); }
 }
 
 // ------------------ Start Countdown ------------------
-function startCountdown() {
-  startTime = Date.now();
-  drainPartialTube(() => {
-    rafId = requestAnimationFrame(update);
-  });
-}
+function startCountdown(){ startTime=Date.now(); drainPartialTube(()=>{ rafId=requestAnimationFrame(update); }); }
 
 // ------------------ Controls ------------------
-document.getElementById('startBtn').addEventListener('click', () => {
-  if (running) return;
-  const v = Number(input.value);
-  if (!v || v <= 0) {
-    alert('Enter valid seconds');
-    return;
-  }
-
-  totalSeconds = Math.ceil(v);
-  createTubes(totalSeconds);
-  msg.style.opacity = 0;
-  running = true;
-  requestWakeLock();
-  if (!document.fullscreenElement)
-    document.documentElement.requestFullscreen().catch(() => {});
-
+document.getElementById('startBtn').addEventListener('click',()=>{
+  if(running) return;
+  const v=Number(input.value);
+  if(!v||v<=0){ alert('Enter valid seconds'); return; }
+  totalSeconds=Math.ceil(v); createTubes(totalSeconds);
+  msg.style.opacity=0; running=true; requestWakeLock();
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
   startCountdown();
 });
 
-document.getElementById('resetBtn').addEventListener('click', () => {
-  running = false;
-  cancelAnimationFrame(rafId);
-  container.innerHTML = '';
-  stopAlarm();
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  running=false; cancelAnimationFrame(rafId); container.innerHTML=''; stopAlarm();
 });
 
-document.getElementById('stopBtn').addEventListener('click', stopAlarm);
-
+document.getElementById('stopBtn').addEventListener('click',stopAlarm);
 </script>
 </body>
 </html>
