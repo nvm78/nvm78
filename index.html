@@ -30,11 +30,12 @@ html,body {
   position:relative; overflow:hidden;
 }
 .water {
-  position:absolute; left:0; right:0; top:0;
-  height:0%;
-  border-radius:10px 10px 0 0;
-  transition:height .25s linear;
-  transform-origin: top;
+  position: absolute;
+  left: 0; right: 0; bottom: 0; /* start from bottom */
+  height: 100%; /* full initially */
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(to top, #0048ff 30%, #00e5ff 70%);
+  transition: height 0.25s linear;
 }
 .wavy {
   background: linear-gradient(to bottom, #0048ff 30%, #00e5ff 70%);
@@ -158,9 +159,10 @@ function drainPartialTube(callback){
   if(partial===0){ partialDrained=true; callback(); return; }
   const totalTubes = full + 1;
   const tube=document.getElementById('water'+(totalTubes-1));
-  const targetHeight = (partial/60)*100;
-  tube.style.transition='height 0.5s linear';
-  tube.style.height=targetHeight+'%';
+
+const targetHeight = (partial / 60) * 100;
+tube.style.height = targetHeight + '%'; // shrinks downward from top
+
   setTimeout(()=>{
     tube.classList.remove('wavy');
     partialDrained=true;
