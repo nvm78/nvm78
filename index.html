@@ -85,16 +85,16 @@ const wakeDot = document.getElementById('wakeDot');
 const volumeSlider = document.getElementById('volumeSlider');
 
 let totalSeconds = 0, startTime = 0, rafId = null, running = false, wakeLock = null;
+let partialDrained = false; // track partial tube drain
+
 const alarmAudio = new Audio('alarm.mp3');
 alarmAudio.loop = true;
 alarmAudio.preload = 'auto';
-
-// 🔉 Volume control
 volumeSlider.addEventListener('input', () => {
   alarmAudio.volume = parseFloat(volumeSlider.value);
 });
 
-// ⏰ Alarm logic
+// ------------------ Alarm ------------------
 function startAlarm() {
   msg.style.opacity = 1;
   msg.classList.add('flash');
@@ -113,7 +113,7 @@ function stopAlarm() {
   }
 }
 
-// 💤 Wake Lock
+// ------------------ Wake Lock ------------------
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
@@ -123,7 +123,6 @@ async function requestWakeLock() {
         wakeDot.style.background = '#f00';
       });
     } else {
-      // Fallback: blinking dot if unsupported
       wakeDot.style.background = '#ff0';
     }
   } catch (e) {
@@ -138,53 +137,79 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
-// 🧪 Tube generation
-let partialDrained = false; // flag to track if partial tube drain finished
-
+// ------------------ Tube Creation ------------------
 function createTubes(totalSec) {
   container.innerHTML = '';
   const full = Math.floor(totalSec / 60);
-@@ -155,21 +157,22 @@
+  const partial = totalSec % 60;
+  const totalTubes = full + (partial ? 1 : 0);
+  const maxWidth = 120;
+  const tubeWidth = Math.max(30, Math.min(maxWidth, Math.floor((container.clientWidth - 10 * (totalTubes - 1)) / totalTubes)));
+
+  for (let i = totalTubes - 1; i >= 0; i--) {
+    const tube = document.createElement('div');
+    tube.className = 'tube';
+    tube.style.width = tubeWidth + 'px';
+
+    const water = document.createElement('div');
     water.className = 'water';
     water.id = 'water' + i;
 
-    // Partial tube starts visually full if it's the first (rightmost) tube
-    // Partial tube starts visually full
+    // Partial tube starts full
     if (i === totalTubes - 1 && partial > 0) {
       water.style.height = '100%';
+      water.style.background = `linear-gradient(120deg, #0048ff 30%, #00e5ff 70%)`;
+      water.style.backgroundSize = '200% 100%';
+      water.classList.add('wavy');
     }
 
     tube.appendChild(water);
     container.appendChild(tube);
   }
 
-  partialDrained = false; // reset for new countdown
+  partialDrained = false;
 }
 
+// ------------------ Wavy CSS Animation ------------------
+const style = document.createElement('style');
+style.textContent = `
+  .wavy {
+    animation: wave 0.5s linear infinite;
+  }
+  @keyframes wave {
+    0% { background-position: 0 0; }
+    100% { background-position: -200% 0; }
+  }
+`;
+document.head.appendChild(style);
+
+// ------------------ Partial Tube Drain + Countdown ------------------
 function startCountdown() {
-  partialDrained = false;
   const full = Math.floor(totalSeconds / 60);
   const partial = totalSeconds % 60;
   const totalTubes = full + (partial ? 1 : 0);
 
-  // Start main update loop after partial tube drain
   if (partial > 0) {
     const partialTube = document.getElementById('water' + (totalTubes - 1));
     const targetHeight = (partial / 60) * 100;
+
+    // quick drain 0.5s
     partialTube.style.transition = 'height 0.5s linear';
     partialTube.style.height = targetHeight + '%';
 
-    // Wait 0.5s for drain to finish
+    // remove wavy effect after drain
     setTimeout(() => {
+      partialTube.classList.remove('wavy');
       partialDrained = true;
       rafId = requestAnimationFrame(update);
     }, 500);
   } else {
-    // No partial, start immediately
+    partialDrained = true;
     rafId = requestAnimationFrame(update);
   }
 }
 
+// ------------------ Countdown Update ------------------
 function update() {
   const elapsed = (Date.now() - startTime) / 1000;
   const remaining = Math.max(totalSeconds - elapsed, 0);
@@ -201,10 +226,8 @@ function update() {
 
     let tubeSec = Math.min(secondsLeft, 60);
 
-    // Skip partial tube until initial drain finishes
-    if (i === totalTubes - 1 && partial > 0 && !partialDrained) {
-      continue;
-    }
+    // Skip partial tube until drain finishes
+    if (i === totalTubes - 1 && partial > 0 && !partialDrained) continue;
 
     tube.style.transition = 'height 0.25s linear';
     tube.style.height = (tubeSec / 60 * 100) + '%';
@@ -221,7 +244,7 @@ function update() {
   }
 }
 
-// 🧭 Controls
+// ------------------ Controls ------------------
 document.getElementById('startBtn').addEventListener('click', () => {
   if (running) return;
   const v = Number(input.value);
@@ -229,15 +252,17 @@ document.getElementById('startBtn').addEventListener('click', () => {
     alert('Enter valid seconds');
     return;
   }
+
   totalSeconds = Math.ceil(v);
   createTubes(totalSeconds);
   msg.style.opacity = 0;
   startTime = Date.now();
   running = true;
   requestWakeLock();
-  rafId = requestAnimationFrame(update);
   if (!document.fullscreenElement)
     document.documentElement.requestFullscreen().catch(() => {});
+
+  startCountdown();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
