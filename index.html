@@ -141,6 +141,26 @@ document.addEventListener('visibilitychange', async () => {
 // 🧪 Tube generation
 let partialDrained = false; // flag to track if partial tube drain finished
 
+function createTubes(totalSec) {
+  container.innerHTML = '';
+  const full = Math.floor(totalSec / 60);
+@@ -155,21 +157,22 @@
+    water.className = 'water';
+    water.id = 'water' + i;
+
+    // Partial tube starts visually full if it's the first (rightmost) tube
+    // Partial tube starts visually full
+    if (i === totalTubes - 1 && partial > 0) {
+      water.style.height = '100%';
+    }
+
+    tube.appendChild(water);
+    container.appendChild(tube);
+  }
+
+  partialDrained = false; // reset for new countdown
+}
+
 function startCountdown() {
   partialDrained = false;
   const full = Math.floor(totalSeconds / 60);
