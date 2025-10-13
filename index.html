@@ -139,6 +139,8 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 // 🧪 Tube generation
+let partialDrained = false; // track if partial drain already happened
+
 function createTubes(totalSec) {
   container.innerHTML = '';
   const full = Math.floor(totalSec / 60);
@@ -155,7 +157,7 @@ function createTubes(totalSec) {
     water.className = 'water';
     water.id = 'water' + i;
 
-    // Partial tube starts visually full if it's the first (rightmost) tube
+    // Partial tube starts visually full
     if (i === totalTubes - 1 && partial > 0) {
       water.style.height = '100%';
     }
@@ -163,13 +165,14 @@ function createTubes(totalSec) {
     tube.appendChild(water);
     container.appendChild(tube);
   }
+
+  partialDrained = false; // reset for new countdown
 }
 
 function animatePartialDrain(tube, targetHeight, duration = 500) {
-  const steps = 20; // number of incremental steps
+  const steps = 20;
   const stepTime = duration / steps;
   let currentStep = 0;
-
   const initialHeight = parseFloat(tube.style.height) || 100;
 
   function step() {
@@ -199,11 +202,12 @@ function update() {
 
     let tubeSec = Math.min(secondsLeft, 60);
 
-    // Partial tube quick flowing drain at start
-    if (i === totalTubes - 1 && partial > 0 && elapsed < 0.5) {
-      tube.style.transition = 'none'; // disable normal transition
+    // Partial tube quick flowing drain at the very start
+    if (i === totalTubes - 1 && partial > 0 && !partialDrained) {
+      tube.style.transition = 'none';
       const targetHeight = (tubeSec / 60) * 100;
-      animatePartialDrain(tube, targetHeight, 500); // 0.5s drain animation
+      animatePartialDrain(tube, targetHeight, 500);
+      partialDrained = true;
     } else {
       tube.style.transition = 'height 0.25s linear';
       tube.style.height = (tubeSec / 60 * 100) + '%';
@@ -220,7 +224,6 @@ function update() {
     startAlarm();
   }
 }
-
 
 // 🧭 Controls
 document.getElementById('startBtn').addEventListener('click', () => {
