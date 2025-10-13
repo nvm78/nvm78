@@ -83,6 +83,8 @@ function startAlarm() {
   msg.style.opacity = 1;
   msg.classList.add('flash');
   try {
+    AudioManager audioManager = (AudioManager)MainActivity.this.getSystemService(Context.AUDIO_SERVICE);
+    audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
     alarmAudio.currentTime = 0;
     alarmAudio.play().catch(e => console.log('Playback blocked:', e));
   } catch (e) {
