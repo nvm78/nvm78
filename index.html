@@ -154,6 +154,12 @@ function createTubes(totalSec) {
     const water = document.createElement('div');
     water.className = 'water';
     water.id = 'water' + i;
+
+    // If it's the first tube and there is a partial minute, start partially filled
+    if (i === totalTubes - 1 && partial > 0) {
+      water.style.height = (partial / 60 * 100) + '%';
+    }
+
     tube.appendChild(water);
     container.appendChild(tube);
   }
@@ -164,6 +170,7 @@ function update() {
   const elapsed = (Date.now() - startTime) / 1000;
   const remaining = Math.max(totalSeconds - elapsed, 0);
   input.value = remaining > 0 ? Math.ceil(remaining) : '';
+
   const full = Math.floor(totalSeconds / 60);
   const partial = totalSeconds % 60;
   const totalTubes = full + (partial ? 1 : 0);
@@ -172,8 +179,18 @@ function update() {
   for (let i = totalTubes - 1; i >= 0; i--) {
     const tube = document.getElementById('water' + i);
     if (!tube) continue;
+
     let tubeSec = Math.min(secondsLeft, 60);
-    tube.style.height = (tubeSec / 60 * 100) + '%';
+
+    // Animate partial tube drain quickly at the start
+    if (i === totalTubes - 1 && partial > 0 && elapsed < 0.5) {
+      tube.style.transition = 'height 0.5s linear';
+      tube.style.height = (tubeSec / 60 * 100) + '%';
+    } else {
+      tube.style.transition = 'height 0.25s linear';
+      tube.style.height = (tubeSec / 60 * 100) + '%';
+    }
+
     secondsLeft -= 60;
   }
 
@@ -185,7 +202,6 @@ function update() {
     startAlarm();
   }
 }
-
 // 🧭 Controls
 document.getElementById('startBtn').addEventListener('click', () => {
   if (running) return;
