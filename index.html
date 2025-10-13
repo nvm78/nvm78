@@ -42,6 +42,11 @@ input[type=number] {
   width:150px; padding:10px; border-radius:8px; border:none; outline:none;
   text-align:center; font-size:1.1rem;
 }
+input[type=range] {
+  width:120px;
+  accent-color:#fff;
+  cursor:pointer;
+}
 button {
   padding:10px 14px; border-radius:8px; border:none;
   background:#fff; color:#1a2a6c; font-weight:700; cursor:pointer;
@@ -65,50 +70,50 @@ button:hover { filter:brightness(.95); }
     <button id="startBtn">Start</button>
     <button id="resetBtn">Reset</button>
     <button id="stopBtn">Stop Alarm</button>
+    <label style="display:flex;align-items:center;gap:5px;">
+      🔉<input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" title="Alarm volume">
+    </label>
   </div>
 </div>
 <div id="wakeDot" title="Screen awake"></div>
+
 <script>
 const container = document.getElementById('countdownContainer');
 const input = document.getElementById('inputSeconds');
 const msg = document.getElementById('messageContainer');
 const wakeDot = document.getElementById('wakeDot');
+const volumeSlider = document.getElementById('volumeSlider');
 
 let totalSeconds = 0, startTime = 0, rafId = null, running = false, wakeLock = null;
 const alarmAudio = new Audio('alarm.mp3');
-alarmAudio.loop = true; // keep looping until stopped
+alarmAudio.loop = true;
 alarmAudio.preload = 'auto';
 
+// 🔉 Volume control
+volumeSlider.addEventListener('input', () => {
+  alarmAudio.volume = parseFloat(volumeSlider.value);
+});
+
+// ⏰ Alarm logic
 function startAlarm() {
   msg.style.opacity = 1;
   msg.classList.add('flash');
-  try {
-    AudioManager audioManager = (AudioManager)MainActivity.this.getSystemService(Context.AUDIO_SERVICE);
-    audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-    alarmAudio.currentTime = 0;
-    alarmAudio.play().catch(e => console.log('Playback blocked:', e));
-  } catch (e) {
-    console.log('Audio play error', e);
-  }
+  alarmAudio.currentTime = 0;
+  alarmAudio.play().catch(e => console.log('Playback blocked:', e));
 }
 
 function stopAlarm() {
   msg.classList.remove('flash');
   msg.style.opacity = 0;
   try {
-    // Stop immediately, even mid-loop
     alarmAudio.pause();
-    alarmAudio.removeAttribute('src'); // force unload the sound
-    alarmAudio.load(); // stops playback instantly
-    // Reinitialize so the next alarm works again
-    alarmAudio.src = 'alarm.mp3';
-    alarmAudio.loop = true;
-    alarmAudio.preload = 'auto';
+    alarmAudio.currentTime = 0;
   } catch (e) {
     console.log('Audio stop error', e);
   }
 }
 
+// 💤 Wake Lock
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
@@ -117,6 +122,9 @@ async function requestWakeLock() {
       wakeLock.addEventListener('release', () => {
         wakeDot.style.background = '#f00';
       });
+    } else {
+      // Fallback: blinking dot if unsupported
+      wakeDot.style.background = '#ff0';
     }
   } catch (e) {
     console.error(e);
@@ -130,6 +138,7 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
+// 🧪 Tube generation
 function createTubes(totalSec) {
   container.innerHTML = '';
   const full = Math.floor(totalSec / 60);
@@ -150,6 +159,7 @@ function createTubes(totalSec) {
   }
 }
 
+// ⏱️ Countdown animation
 function update() {
   const elapsed = (Date.now() - startTime) / 1000;
   const remaining = Math.max(totalSeconds - elapsed, 0);
@@ -161,6 +171,7 @@ function update() {
 
   for (let i = totalTubes - 1; i >= 0; i--) {
     const tube = document.getElementById('water' + i);
+    if (!tube) continue;
     let tubeSec = Math.min(secondsLeft, 60);
     tube.style.height = (tubeSec / 60 * 100) + '%';
     secondsLeft -= 60;
@@ -175,6 +186,7 @@ function update() {
   }
 }
 
+// 🧭 Controls
 document.getElementById('startBtn').addEventListener('click', () => {
   if (running) return;
   const v = Number(input.value);
@@ -201,47 +213,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 document.getElementById('stopBtn').addEventListener('click', stopAlarm);
-
-(function() {
-  const oldLog = console.log;
-  const oldErr = console.error;
-  const output = document.createElement('div');
-  output.style.cssText = `
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    max-height: 40vh;
-    overflow-y: auto;
-    background: rgba(0,0,0,0.85);
-    color: #0f0;
-    font-family: monospace;
-    font-size: 12px;
-    padding: 8px;
-    z-index: 999999;
-  `;
-  document.body.appendChild(output);
-
-  function writeLog(type, ...args) {
-    const msg = document.createElement('div');
-    msg.textContent = `[${type}] ` + args.join(' ');
-    output.appendChild(msg);
-    output.scrollTop = output.scrollHeight;
-  }
-
-  console.log = (...args) => {
-    oldLog(...args);
-    writeLog('log', ...args);
-  };
-
-  console.error = (...args) => {
-    oldErr(...args);
-    writeLog('error', ...args);
-  };
-})();
 </script>
-
-
 </body>
 </html>
-
