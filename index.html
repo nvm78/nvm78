@@ -165,6 +165,24 @@ function createTubes(totalSec) {
   }
 }
 
+function animatePartialDrain(tube, targetHeight, duration = 500) {
+  const steps = 20; // number of incremental steps
+  const stepTime = duration / steps;
+  let currentStep = 0;
+
+  const initialHeight = parseFloat(tube.style.height) || 100;
+
+  function step() {
+    currentStep++;
+    const newHeight = initialHeight - (initialHeight - targetHeight) * (currentStep / steps);
+    tube.style.height = newHeight + '%';
+    if (currentStep < steps) {
+      setTimeout(step, stepTime);
+    }
+  }
+  step();
+}
+
 function update() {
   const elapsed = (Date.now() - startTime) / 1000;
   const remaining = Math.max(totalSeconds - elapsed, 0);
@@ -181,13 +199,12 @@ function update() {
 
     let tubeSec = Math.min(secondsLeft, 60);
 
-    // Partial tube quick drain for the first tube
-    if (i === totalTubes - 1 && partial > 0 && secondsLeft > totalSeconds - partial) {
-      // Quick drain from full to partial
-      tube.style.transition = 'height 0.5s linear';
-      tube.style.height = (tubeSec / 60 * 100) + '%';
+    // Partial tube quick flowing drain at start
+    if (i === totalTubes - 1 && partial > 0 && elapsed < 0.5) {
+      tube.style.transition = 'none'; // disable normal transition
+      const targetHeight = (tubeSec / 60) * 100;
+      animatePartialDrain(tube, targetHeight, 500); // 0.5s drain animation
     } else {
-      // Normal countdown animation
       tube.style.transition = 'height 0.25s linear';
       tube.style.height = (tubeSec / 60 * 100) + '%';
     }
@@ -203,6 +220,7 @@ function update() {
     startAlarm();
   }
 }
+
 
 // 🧭 Controls
 document.getElementById('startBtn').addEventListener('click', () => {
